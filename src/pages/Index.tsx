@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import agLogoWhite from "@/assets/ag-logo-white.png";
+import agLogoDark from "@/assets/ag-logo.png";
 
 const PROBLEM_LIST = [
   "Sua equipe comercial prospecta frio.",
@@ -390,7 +391,7 @@ const Index = () => {
       {/* NAV */}
       <nav className={navVisible ? "" : "nav-hidden"}>
         <a href="#" className="logo">
-          <img src={agLogoWhite} alt="AG Antecipa" className="logo-img" />
+          <img src={agLogoDark} alt="AG Antecipa" className="logo-img" />
         </a>
         <ul className="nav-links">
           <li><button type="button" className="nav-cta" onClick={openModal}>Quero leads qualificados</button></li>

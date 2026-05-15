@@ -62,8 +62,8 @@ nav {
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 60px 18px 100px;
-  background: linear-gradient(180deg, rgba(10,22,40,0.94) 0%, rgba(10,22,40,0.78) 72%, rgba(10,22,40,0.18) 100%);
-  backdrop-filter: blur(16px);
+  background: linear-gradient(180deg, rgba(250,250,250,0.92) 0%, rgba(250,250,250,0.78) 72%, rgba(250,250,250,0.18) 100%);
+  backdrop-filter: blur(14px);
   transition: transform 0.35s ease, opacity 0.35s ease;
 }
 
@@ -74,16 +74,23 @@ nav.nav-hidden {
 }
 
 .logo {
-  display: flex; align-items: center;
+  position: relative;
+  display: block;
+  width: 180px;
+  height: 36px;
+  overflow: hidden;
   text-decoration: none;
 }
 
 .logo-img {
-  height: 28px;
-  width: auto;
-  object-fit: contain;
-  position: relative;
-  top: 2px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: auto;
+  max-width: none;
+  display: block;
 }
 
 .footer-logo-img {
@@ -119,7 +126,7 @@ nav.nav-hidden {
   transition: transform .2s ease;
 }
 
-/* HERO — institutional / editorial */
+/* HERO — light institutional / editorial */
 .hero {
   position: relative;
   min-height: 100vh;
@@ -130,7 +137,8 @@ nav.nav-hidden {
   margin-top: -70px;
   overflow: hidden;
   isolation: isolate;
-  background: #0a1628;
+  background: linear-gradient(180deg, #ffffff 0%, #f6f7f9 55%, #e9ecf1 100%);
+  color: #15326c;
 }
 
 .hero-backdrop {
@@ -145,8 +153,8 @@ nav.nav-hidden {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(to right, rgba(255,255,255,0.022) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,255,0.022) 1px, transparent 1px);
+    linear-gradient(to right, rgba(21,50,108,0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(21,50,108,0.035) 1px, transparent 1px);
   background-size: 80px 80px;
   background-position: center center;
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 25%, black 75%, transparent 100%);
@@ -158,7 +166,7 @@ nav.nav-hidden {
   left: 60px;
   right: 60px;
   height: 1px;
-  background: rgba(255,255,255,0.06);
+  background: rgba(21,50,108,0.1);
 }
 .hero-rule.top { top: 110px; }
 .hero-rule.bottom { bottom: 70px; }
@@ -185,7 +193,7 @@ nav.nav-hidden {
 .hero-anchor {
   width: 56px;
   height: 1px;
-  background: var(--teal);
+  background: #00665a;
   opacity: 0.85;
 }
 
@@ -215,10 +223,19 @@ nav.nav-hidden {
   margin-top: 4px;
 }
 
+/* Hero light theme overrides — tons de azul AG */
+.hero .hl-muted {
+  color: rgba(21,50,108,0.48);
+}
+
+.hero .hl-bright {
+  color: #15326c;
+}
+
 .hero-support {
   font-size: 17px;
   line-height: 1.7;
-  color: rgba(232,238,245,0.78);
+  color: rgba(21,50,108,0.72);
   max-width: 660px;
   margin: 0;
   font-weight: 400;
@@ -264,7 +281,7 @@ nav.nav-hidden {
   gap: 18px;
   margin-top: 22px;
   padding-top: 22px;
-  border-top: 1px dashed rgba(255,255,255,0.08);
+  border-top: 1px dashed rgba(21,50,108,0.18);
   max-width: 640px;
   width: 100%;
 }
@@ -273,7 +290,7 @@ nav.nav-hidden {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
   letter-spacing: 0.04em;
-  color: rgba(232,238,245,0.6);
+  color: rgba(21,50,108,0.6);
   white-space: nowrap;
 }
 
@@ -281,7 +298,7 @@ nav.nav-hidden {
   font-family: 'Sora', sans-serif;
   font-weight: 700;
   font-size: 14px;
-  color: var(--white);
+  color: #15326c;
   letter-spacing: -0.01em;
   margin-right: 4px;
   font-variant-numeric: tabular-nums;
@@ -291,7 +308,7 @@ nav.nav-hidden {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: rgba(0,201,177,0.5);
+  background: rgba(0,108,96,0.55);
   flex-shrink: 0;
 }
 
