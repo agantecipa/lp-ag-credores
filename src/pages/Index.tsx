@@ -11,13 +11,13 @@ const PROBLEM_LIST = [
 ];
 
 const EXPERTISE_ITEMS = [
-  "perfil de cedente",
-  "qualidade de sacado",
-  "comportamento de operação",
-  "timing de caixa",
-  "urgência financeira",
-  "perfil de ticket",
-  "maturidade do lead",
+  "Perfil de cedente",
+  "Qualidade de sacado",
+  "Comportamento de operação",
+  "Timing de caixa",
+  "Urgência financeira",
+  "Perfil de ticket",
+  "Maturidade do lead",
 ];
 
 const COMPARATIVO_ROWS: Array<{ tradicional: string; ag: string }> = [
@@ -567,10 +567,7 @@ const Index = () => {
 
           <ul className="expertise-list">
             {EXPERTISE_ITEMS.map((item, i) => (
-              <li key={i} className="expertise-item">
-                <span className="expertise-dash" aria-hidden="true">—</span>
-                <span>{item}</span>
-              </li>
+              <li key={i} className="expertise-item">{item}</li>
             ))}
           </ul>
 
