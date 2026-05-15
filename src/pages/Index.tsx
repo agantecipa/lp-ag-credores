@@ -1,37 +1,63 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import agLogoWhite from "@/assets/ag-logo-white.png";
-import ctaBgImage from "@/assets/cta-bg.png";
 
-const ESTADOS = [
-  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS",
-  "MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"
+const PROBLEM_LIST = [
+  "Sua equipe comercial prospecta frio.",
+  "O marketing gera curiosos.",
+  "O CAC aumenta.",
+  "O SDR vira filtro de lead ruim.",
+  "E a operação continua dependente de indicação.",
 ];
 
-const FAQ_DATA = [
-  { q: "O imóvel precisa estar quitado?", a: "Não necessariamente. Em alguns casos, imóveis ainda financiados podem ser aceitos. Fale com nosso especialista para verificar a sua situação específica." },
-  { q: "Posso usar o crédito para qualquer finalidade?", a: "Sim. Capital de giro, expansão, quitação de dívidas, investimento. Você decide como usar, sem restrições de finalidade." },
-  { q: "Meu imóvel fica bloqueado durante o contrato?", a: "Não. O imóvel é dado apenas como garantia, e você pode utilizá-lo normalmente durante todo o período." },
-  { q: "Quais imóveis são aceitos como garantia?", a: "Aceitamos imóveis residenciais como apartamentos, casas de rua e casas em condomínio, e também imóveis comerciais. Entre em contato para verificar o seu caso específico." },
-  { q: "Quanto posso contratar?", a: "Até 60% do valor de avaliação do imóvel, com prazo de até 240 meses para pagamento." },
-  { q: "Em quanto tempo o dinheiro cai na conta?", a: "Após a assinatura do contrato e o registro do imóvel, o crédito é liberado em até 5 dias úteis. Nossos parceiros acompanham cada etapa para garantir que tudo aconteça no prazo." },
+const EXPERTISE_ITEMS = [
+  "perfil de cedente",
+  "qualidade de sacado",
+  "comportamento de operação",
+  "timing de caixa",
+  "urgência financeira",
+  "perfil de ticket",
+  "maturidade do lead",
 ];
 
-function formatSliderValue(val: number): string {
-  if (val >= 1000000) {
-    const m = val / 1000000;
-    const mStr = (Number.isInteger(m) ? m : m.toFixed(1)).toString().replace(".", ",");
-    return `R$ ${mStr} ${m <= 1 ? "milhão" : "milhões"}`;
-  }
-  return `R$ ${(val / 1000).toFixed(0)} mil`;
-}
+const COMPARATIVO_ROWS: Array<{ tradicional: string; ag: string }> = [
+  { tradicional: "Contrata SDR", ag: "Recebe lead" },
+  { tradicional: "Paga mídia sem garantia", ag: "Paga apenas sucesso" },
+  { tradicional: "Alto CAC", ag: "CAC previsível" },
+  { tradicional: "Leads frios", ag: "Leads qualificados" },
+  { tradicional: "Time interno maior", ag: "Operação enxuta" },
+];
 
-function scrollToForm() {
-  const el = document.getElementById("form");
-  if (!el) return;
-  const navHeight = 70;
-  const y = el.getBoundingClientRect().top + window.scrollY - navHeight;
-  window.scrollTo({ top: y, behavior: "smooth" });
-}
+const PROOF_STATS: Array<{ value: string; label: string }> = [
+  { value: "+20", label: "Anos no mercado de crédito" },
+  { value: "+R$ 800mi", label: "Em operações originadas" },
+  { value: "+1.500", label: "Empresas atendidas" },
+  { value: "600%", label: "De crescimento nos últimos 3 anos" },
+];
+
+const MODELO_STEPS: Array<{ title: string; desc?: string; points?: string[] }> = [
+  {
+    title: "A AG gera os leads",
+    desc: "Tráfego, campanhas, qualificação e aquisição.",
+  },
+  {
+    title: "Validamos o perfil",
+    desc: "Empresas B2B com potencial para antecipação.",
+  },
+  {
+    title: "Encaminhamos para sua operação",
+    desc: "Você assume análise e fechamento.",
+  },
+  {
+    title: "Só ganhamos se virar cliente",
+    points: [
+      "Sem mensalidade fixa.",
+      "Sem custo por curiosidade.",
+      "Sem risco comercial desnecessário.",
+    ],
+  },
+];
+
+const TIPO_OPERACAO_OPTIONS = ["Factoring", "Securitizadora", "FIDC", "Outro"];
 
 function isValidEmail(email: string): boolean {
   const normalized = email.trim().toLowerCase();
@@ -39,80 +65,108 @@ function isValidEmail(email: string): boolean {
   if (!basicValid) return false;
 
   const [, domain = ""] = normalized.split("@");
-
-  // Bloqueia typos comuns em domínios de e-mail populares (ex.: gmail.coma).
   const hasCommonProviderTypo = /(gmail\.com|hotmail\.com|outlook\.com|yahoo\.com|icloud\.com|live\.com|msn\.com)[a-z]+$/i.test(domain);
   if (hasCommonProviderTypo) return false;
-
-  // Bloqueia sufixos acidentalmente digitados após ".com.br" (ex.: uol.com.bra).
   const hasComBrTypo = /\.com\.br[a-z]+$/i.test(domain);
   if (hasComBrTypo) return false;
 
   return true;
 }
 
-const SLIDER_MIN = 50000;
-const SLIDER_STEP = 10000;
-const SLIDER_HARD_MAX = 10000000;
-const VALOR_IMOVEL_MIN = 100000;
+// DDDs válidos no Brasil (Anatel)
+const VALID_BR_DDDS = new Set([
+  11,12,13,14,15,16,17,18,19,
+  21,22,24,27,28,
+  31,32,33,34,35,37,38,
+  41,42,43,44,45,46,47,48,49,
+  51,53,54,55,
+  61,62,63,64,65,66,67,68,69,
+  71,73,74,75,77,79,
+  81,82,83,84,85,86,87,88,89,
+  91,92,93,94,95,96,97,98,99,
+]);
 
-function formatThousands(digits: string): string {
-  if (!digits) return "";
-  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+function isValidBRMobile(tel: string): boolean {
+  const digits = tel.replace(/\D/g, "");
+  if (digits.length !== 11) return false;
+  const ddd = parseInt(digits.slice(0, 2), 10);
+  if (!VALID_BR_DDDS.has(ddd)) return false;
+  return digits[2] === "9";
 }
 
 const Index = () => {
-  const [formStep, setFormStep] = useState(1);
-  const [sliderVal, setSliderVal] = useState(SLIDER_MIN);
-  const [isQuitado, setIsQuitado] = useState(true);
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [barsAnimated, setBarsAnimated] = useState(false);
   const [navVisible, setNavVisible] = useState(true);
-  const chartRef = useRef<HTMLDivElement>(null);
-
-  // Form state
-  const [celular, setCelular] = useState("");
-  const [estado, setEstado] = useState("");
-  const [cidade, setCidade] = useState("");
-  const [cidades, setCidades] = useState<string[]>([]);
-  const [loadingCidades, setLoadingCidades] = useState(false);
-  const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
-  const [valorImovel, setValorImovel] = useState("");
-  const [tipoImovel, setTipoImovel] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [showCookieNotice, setShowCookieNotice] = useState(false);
 
-  // Phone mask (XX) XXXXX-XXXX
-  const handleCelularChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [leadSubmitting, setLeadSubmitting] = useState(false);
+  const [leadSent, setLeadSent] = useState(false);
+  const [leadErrors, setLeadErrors] = useState<Record<string, boolean>>({});
+  const [formStep, setFormStep] = useState<1 | 2>(1);
+
+  // Lead fields (shared between modal + inline form)
+  const [leadNome, setLeadNome] = useState("");
+  const [leadEmpresa, setLeadEmpresa] = useState("");
+  const [leadCargo, setLeadCargo] = useState("");
+  const [leadTel, setLeadTel] = useState("");
+  const [leadEmail, setLeadEmail] = useState("");
+  const [leadTipoOp, setLeadTipoOp] = useState("");
+
+  const handleLeadTelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let v = e.target.value.replace(/\D/g, "").slice(0, 11);
     if (v.length > 6) v = `(${v.slice(0,2)}) ${v.slice(2,7)}-${v.slice(7)}`;
     else if (v.length > 2) v = `(${v.slice(0,2)}) ${v.slice(2)}`;
     else if (v.length > 0) v = `(${v}`;
-    setCelular(v);
+    setLeadTel(v);
+    setLeadErrors(er => ({ ...er, tel: false, telFormat: false }));
   };
 
-  // Fetch cities from IBGE API when state changes
-  useEffect(() => {
-    if (!estado) { setCidades([]); setCidade(""); return; }
-    setLoadingCidades(true);
-    setCidade("");
-    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estado}/municipios?orderBy=nome`)
-      .then(r => r.json())
-      .then((data: Array<{ nome: string }>) => {
-        setCidades(data.map(c => c.nome));
-      })
-      .catch(() => setCidades([]))
-      .finally(() => setLoadingCidades(false));
-  }, [estado]);
+  const openModal = useCallback(() => {
+    setFormStep(1);
+    setLeadErrors({});
+    setModalOpen(true);
+  }, []);
 
-  // Nav hide/show logic
+  const goToStep2 = useCallback(() => {
+    const errors: Record<string, boolean> = {};
+    if (!leadNome.trim()) errors.nome = true;
+    if (!leadEmail.trim()) errors.email = true;
+    else if (!isValidEmail(leadEmail)) errors.emailFormat = true;
+    const telDigits = leadTel.replace(/\D/g, "");
+    if (!telDigits) errors.tel = true;
+    else if (!isValidBRMobile(leadTel)) errors.telFormat = true;
+    setLeadErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    setFormStep(2);
+  }, [leadNome, leadEmail, leadTel]);
+
+  const closeModal = useCallback(() => {
+    setModalOpen(false);
+  }, []);
+
+  // Esc to close + body scroll lock
+  useEffect(() => {
+    if (!modalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setModalOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [modalOpen]);
+
+  // Nav hide/show on hero leave
   useEffect(() => {
     const handleScroll = () => {
       const heroEl = document.getElementById("hero");
       const heroBottom = heroEl ? heroEl.getBoundingClientRect().bottom : 0;
       setNavVisible(heroBottom > 0);
     };
-
     handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("resize", handleScroll);
@@ -132,146 +186,128 @@ const Index = () => {
     setShowCookieNotice(false);
   }, []);
 
-  // Valor do imóvel (digits-only) and derived helpers
-  const valorImovelNum = parseInt(valorImovel || "0", 10);
-  const valorImovelValid = valorImovelNum >= VALOR_IMOVEL_MIN;
-  const valorImovelDisplay = formatThousands(valorImovel);
-
-  const dynamicMax = valorImovelValid
-    ? Math.min(Math.floor((valorImovelNum * 0.6) / SLIDER_STEP) * SLIDER_STEP, SLIDER_HARD_MAX)
-    : SLIDER_HARD_MAX;
-
-  // Auto-clamp slider value when valor do imóvel reduces the max
-  useEffect(() => {
-    if (valorImovelValid && sliderVal > dynamicMax) {
-      setSliderVal(dynamicMax);
-    }
-  }, [dynamicMax, valorImovelValid, sliderVal]);
-
-  // Slider track color (range relative to current dynamic max)
-  const sliderRange = Math.max(dynamicMax - SLIDER_MIN, 1);
-  const sliderPct = Math.max(0, Math.min(100, ((sliderVal - SLIDER_MIN) / sliderRange) * 100));
-  const sliderBg = `linear-gradient(to right, var(--teal) ${sliderPct}%, rgba(255,255,255,0.1) ${sliderPct}%)`;
-
-  // Chart animation via IntersectionObserver
-  useEffect(() => {
-    const el = chartRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setBarsAnimated(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.3 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  const handleSubmitForm = useCallback(async () => {
-    const name = (document.getElementById("f-nome") as HTMLInputElement)?.value.trim() || "";
-    const email = (document.getElementById("f-email") as HTMLInputElement)?.value.trim() || "";
-    const tel = celular;
-    const cel = celular.replace(/\D/g, "");
-
+  const handleLeadSubmit = useCallback(async () => {
     const errors: Record<string, boolean> = {};
-    if (!name) errors.nome = true;
-    if (!email) errors.email = true;
-    else if (!isValidEmail(email)) errors.emailFormat = true;
-    if (cel.length < 11) errors.cel = true;
-    if (!estado) errors.estado = true;
-    if (!cidade) errors.cidade = true;
-    if (!valorImovel) errors.valorImovel = true;
-    else if (valorImovelNum < VALOR_IMOVEL_MIN) errors.valorImovelMin = true;
-    if (!tipoImovel) errors.tipoImovel = true;
-    setFormErrors(errors);
+    if (!leadEmpresa.trim()) errors.empresa = true;
+    if (!leadCargo.trim()) errors.cargo = true;
+    if (!leadTipoOp) errors.tipoOp = true;
+    setLeadErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
-    const params = new URLSearchParams(window.location.search);
-    const utms = {
-      utm_source: params.get("utm_source") || "",
-      utm_medium: params.get("utm_medium") || "",
-      utm_campaign: params.get("utm_campaign") || "",
-      utm_id: params.get("utm_id") || "",
-      utm_term: params.get("utm_term") || "",
-      utm_content: params.get("utm_content") || "",
-    };
+    // TODO: integração com webhook/CRM será definida depois.
+    // Por enquanto o submit apenas marca como enviado para teste de UX.
+    setLeadSubmitting(true);
+    await new Promise((r) => setTimeout(r, 400));
+    setLeadSubmitting(false);
+    setLeadSent(true);
+  }, [leadEmpresa, leadCargo, leadTipoOp]);
 
-    const payload = {
-      name,
-      email,
-      tel,
-      estado,
-      cidade,
-      valor_credito: formatThousands(String(sliderVal)),
-      valor_imovel: valorImovelDisplay,
-      imovel_quitado: isQuitado ? "Sim" : "Não",
-      tipo_imovel: tipoImovel,
-      ...utms,
-      page_url: window.location.href,
-      submitted_at: new Date().toISOString(),
-    };
+  const renderLeadForm = () => (
+    <>
+      <div className="lead-form-stepper" aria-hidden="true">
+        <div className={`lead-form-stepper-dot ${formStep >= 1 ? "active" : ""}`}></div>
+        <div className={`lead-form-stepper-line ${formStep === 2 ? "active" : ""}`}></div>
+        <div className={`lead-form-stepper-dot ${formStep >= 2 ? "active" : ""}`}></div>
+      </div>
 
-    setSubmitting(true);
-    try {
-      const response = await fetch("https://hook.us2.make.com/9jdepnqdpi1od4tkpeel61yx6r9klw5h", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      {formStep === 1 ? (
+        <>
+          <div className="lead-form-fields">
+            <div className={`form-group full ${leadErrors.nome ? "has-error" : ""}`}>
+              <label>Nome completo</label>
+              <input
+                type="text"
+                value={leadNome}
+                placeholder="Seu nome completo"
+                onChange={(e) => { setLeadNome(e.target.value); setLeadErrors(er => ({ ...er, nome: false })); }}
+              />
+              {leadErrors.nome && <span className="field-error">Preenchimento obrigatório</span>}
+            </div>
 
-      if (response.ok) {
-        const w = window as unknown as { dataLayer: Record<string, unknown>[] };
-        w.dataLayer = w.dataLayer || [];
-        w.dataLayer.push({
-          event: "submit-home",
-          name,
-          email,
-          tel,
-          estado,
-          cidade,
-          valor_credito: sliderVal,
-          valor_imovel: valorImovelNum,
-          imovel_quitado: isQuitado ? "Sim" : "Não",
-          tipo_imovel: tipoImovel,
-          utm_source: utms.utm_source,
-          utm_medium: utms.utm_medium,
-          utm_campaign: utms.utm_campaign,
-          utm_id: utms.utm_id,
-          utm_term: utms.utm_term,
-          utm_content: utms.utm_content,
-          page_url: window.location.href,
-          submitted_at: new Date().toISOString(),
-        });
+            <div className={`form-group full ${leadErrors.email || leadErrors.emailFormat ? "has-error" : ""}`}>
+              <label>E-mail corporativo</label>
+              <input
+                type="email"
+                value={leadEmail}
+                placeholder="seu@empresa.com"
+                onChange={(e) => { setLeadEmail(e.target.value); setLeadErrors(er => ({ ...er, email: false, emailFormat: false })); }}
+              />
+              {leadErrors.email && <span className="field-error">Preenchimento obrigatório</span>}
+              {leadErrors.emailFormat && <span className="field-error">Digite um e-mail válido</span>}
+            </div>
 
-        window.setTimeout(() => {
-          window.location.href = "https://antecipacao.agantecipa.com.br/obrigado-cadastro";
-        }, 300);
-      }
-    } catch (err) {
-      console.error("Webhook error:", err);
-    } finally {
-      setSubmitting(false);
-    }
-  }, [celular, estado, cidade, sliderVal, valorImovel, valorImovelDisplay, valorImovelNum, isQuitado, tipoImovel]);
+            <div className={`form-group full ${leadErrors.tel || leadErrors.telFormat ? "has-error" : ""}`}>
+              <label>WhatsApp</label>
+              <input
+                type="tel"
+                value={leadTel}
+                placeholder="(11) 99999-9999"
+                onChange={handleLeadTelChange}
+              />
+              {leadErrors.tel && <span className="field-error">Preenchimento obrigatório</span>}
+              {leadErrors.telFormat && <span className="field-error">Informe um WhatsApp válido (DDD + 9 + 8 dígitos)</span>}
+            </div>
+          </div>
 
-  const goStep2 = useCallback(() => {
-    const nome = (document.getElementById("f-nome") as HTMLInputElement)?.value.trim();
-    const email = (document.getElementById("f-email") as HTMLInputElement)?.value.trim();
-    const cel = celular.replace(/\D/g, "");
-    const errors: Record<string, boolean> = {};
-    if (!nome) errors.nome = true;
-    if (!email) errors.email = true;
-    else if (!isValidEmail(email)) errors.emailFormat = true;
-    if (cel.length < 11) errors.cel = true;
-    if (!estado) errors.estado = true;
-    if (!cidade) errors.cidade = true;
-    setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-    setFormStep(2);
-  }, [celular, estado, cidade]);
+          <button className="lead-cta" onClick={goToStep2}>
+            <span>Continuar</span>
+            <span className="cta-arrow" aria-hidden="true">→</span>
+          </button>
+        </>
+      ) : (
+        <>
+          <button className="lead-form-back" type="button" onClick={() => setFormStep(1)}>← Voltar</button>
+
+          <div className="lead-form-fields">
+            <div className={`form-group full ${leadErrors.empresa ? "has-error" : ""}`}>
+              <label>Empresa</label>
+              <input
+                type="text"
+                value={leadEmpresa}
+                placeholder="Razão social ou nome fantasia"
+                onChange={(e) => { setLeadEmpresa(e.target.value); setLeadErrors(er => ({ ...er, empresa: false })); }}
+              />
+              {leadErrors.empresa && <span className="field-error">Preenchimento obrigatório</span>}
+            </div>
+
+            <div className={`form-group full ${leadErrors.cargo ? "has-error" : ""}`}>
+              <label>Cargo</label>
+              <input
+                type="text"
+                value={leadCargo}
+                placeholder="Seu cargo na empresa"
+                onChange={(e) => { setLeadCargo(e.target.value); setLeadErrors(er => ({ ...er, cargo: false })); }}
+              />
+              {leadErrors.cargo && <span className="field-error">Preenchimento obrigatório</span>}
+            </div>
+
+            <div className={`form-group full ${leadErrors.tipoOp ? "has-error" : ""}`}>
+              <label>Tipo de operação</label>
+              <select
+                value={leadTipoOp}
+                onChange={(e) => { setLeadTipoOp(e.target.value); setLeadErrors(er => ({ ...er, tipoOp: false })); }}
+              >
+                <option value="">Selecione</option>
+                {TIPO_OPERACAO_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+              {leadErrors.tipoOp && <span className="field-error">Selecione uma opção</span>}
+            </div>
+          </div>
+
+          <button className="lead-cta" onClick={handleLeadSubmit} disabled={leadSubmitting}>
+            <span>{leadSubmitting ? "Enviando..." : "Enviar"}</span>
+            {!leadSubmitting && <span className="cta-arrow" aria-hidden="true">→</span>}
+          </button>
+
+          <p className="lead-consent">
+            Ao cadastrar você concorda em fornecer seus dados para receber o contato da AG Antecipa.
+          </p>
+        </>
+      )}
+    </>
+  );
 
   return (
     <>
@@ -281,377 +317,264 @@ const Index = () => {
           <img src={agLogoWhite} alt="AG Antecipa" className="logo-img" />
         </a>
         <ul className="nav-links">
-          <li><a href="#como-funciona">Como Funciona</a></li>
-          <li><a href="#form" className="nav-cta">Simular Agora</a></li>
+          <li><button type="button" className="nav-cta" onClick={openModal}>Quero leads qualificados</button></li>
         </ul>
       </nav>
 
       {/* HERO */}
       <section className="hero" id="hero">
-        <div className="hero-media-mobile" aria-hidden="true"></div>
+        <div className="hero-backdrop" aria-hidden="true">
+          <div className="hero-grid"></div>
+          <div className="hero-rule top"></div>
+          <div className="hero-rule bottom"></div>
+        </div>
+
         <div className="hero-content">
-          <img src={agLogoWhite} alt="AG Antecipa" className="hero-mobile-logo" />
-          <div className="hero-badge"><span></span> Home Equity</div>
+          <span className="hero-anchor" aria-hidden="true"></span>
+
           <h1 className="hero-headline">
-            Seu imóvel como <em>garantia de crédito.</em>
+            <span className="hl-line hl-muted">Você fecha as operações.</span>
+            <span className="hl-line hl-bright">Nós geramos os clientes.</span>
           </h1>
+
           <p className="hero-support">
-            É o seu <em style={{ fontStyle: "normal", color: "var(--teal)", fontWeight: 700 }}>patrimônio</em> trabalhando por você. Com a AG Antecipa, você acessa as menores taxas do mercado com atendimento próximo do início ao fim.
+            A AG origina empresas interessadas em antecipação de recebíveis para factorings, securitizadoras e FIDCs — e só ganha quando o lead vira operação.
           </p>
-          <div className="hero-metrics">
-            <div className="metric">
-              <span className="metric-prefix">a partir de</span>
-              <span className="metric-val">1,09%</span>
-              <span className="metric-label">a.m. + IPCA</span>
-            </div>
-            <div className="metric">
-              <span className="metric-prefix">até</span>
-              <span className="metric-val">240x</span>
-              <span className="metric-label">meses para pagar</span>
-            </div>
-            <div className="metric">
-              <span className="metric-prefix">até</span>
-              <span className="metric-val">60%</span>
-              <span className="metric-label">do valor do imóvel</span>
-            </div>
-          </div>
-        </div>
 
-        <div className="form-box" id="form">
-          {/* STEP INDICATOR */}
-          <div className="step-indicator">
-            <div className={`step-dot ${formStep === 1 ? "active" : "done"}`}></div>
-            <div className={`step-line-indicator ${formStep === 2 ? "active" : ""}`}></div>
-            <div className={`step-dot ${formStep === 2 ? "active" : ""}`}></div>
-          </div>
-
-          {/* STEP 1 */}
-          <div className={`form-step ${formStep !== 1 ? "hidden" : ""}`}>
-            <div className="form-title">Faça sua simulação gratuita</div>
-            <div className="form-sub">Etapa 1 de 2 · Sobre você</div>
-            <div className="form-grid">
-              <div className={`form-group full ${formErrors.nome ? "has-error" : ""}`}>
-                <label>Nome Completo</label>
-                <input type="text" id="f-nome" placeholder="Seu nome completo" onChange={() => setFormErrors(e => ({...e, nome: false}))} />
-                {formErrors.nome && <span className="field-error">Preenchimento obrigatório</span>}
-              </div>
-              <div className={`form-group ${formErrors.email || formErrors.emailFormat ? "has-error" : ""}`}>
-                <label>E-mail</label>
-                <input type="email" id="f-email" placeholder="seu@email.com" onChange={() => setFormErrors(e => ({...e, email: false, emailFormat: false}))} />
-                {formErrors.email && <span className="field-error">Preenchimento obrigatório</span>}
-                {formErrors.emailFormat && <span className="field-error">Digite um e-mail válido</span>}
-              </div>
-              <div className={`form-group ${formErrors.cel ? "has-error" : ""}`}>
-                <label>Celular</label>
-                <input type="tel" id="f-cel" placeholder="(11) 99999-9999" value={celular} onChange={(ev) => { handleCelularChange(ev); setFormErrors(e => ({...e, cel: false})); }} />
-                {formErrors.cel && <span className="field-error">Preenchimento obrigatório</span>}
-              </div>
-              <div className={`form-group ${formErrors.estado ? "has-error" : ""}`}>
-                <label>Estado</label>
-                <select value={estado} onChange={(e) => { setEstado(e.target.value); setFormErrors(er => ({...er, estado: false})); }}>
-                  <option value="">Selecione</option>
-                  {ESTADOS.map((uf) => (
-                    <option key={uf} value={uf}>{uf}</option>
-                  ))}
-                </select>
-                {formErrors.estado && <span className="field-error">Preenchimento obrigatório</span>}
-              </div>
-              <div className={`form-group ${formErrors.cidade ? "has-error" : ""}`}>
-                <label>Cidade</label>
-                <select value={cidade} onChange={(e) => { setCidade(e.target.value); setFormErrors(er => ({...er, cidade: false})); }} disabled={!estado || loadingCidades}>
-                  <option value="">{loadingCidades ? "Carregando..." : estado ? "Selecione a cidade" : "Selecione o estado primeiro"}</option>
-                  {cidades.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-                {formErrors.cidade && <span className="field-error">Preenchimento obrigatório</span>}
-              </div>
-            </div>
-            <button className="btn-cta" onClick={goStep2}>Continuar</button>
-            <div className="form-security">🔒 Seus dados estão protegidos. Sem compromisso.</div>
-          </div>
-
-          {/* STEP 2 */}
-          <div className={`form-step ${formStep !== 2 ? "hidden" : ""}`}>
-            <button className="step-back" onClick={() => setFormStep(1)}>← Voltar</button>
-            <div className="form-title">Sobre o imóvel</div>
-            <div className="form-sub">Etapa 2 de 2 · Informações do crédito</div>
-            <div className="form-grid">
-              <div className={`form-group full ${formErrors.valorImovel || formErrors.valorImovelMin ? "has-error" : ""}`}>
-                <label>Valor estimado do imóvel</label>
-                <div className="input-currency">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="Ex: 500.000"
-                    value={valorImovelDisplay}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
-                      setValorImovel(digits);
-                      setFormErrors(er => ({ ...er, valorImovel: false, valorImovelMin: false }));
-                    }}
-                  />
-                </div>
-                <span className="field-hint">Mínimo R$ 100.000,00</span>
-                {formErrors.valorImovel && <span className="field-error">Preenchimento obrigatório</span>}
-                {formErrors.valorImovelMin && <span className="field-error">Trabalhamos com imóveis a partir de R$ 100.000</span>}
-              </div>
-              <div className="form-group full">
-                <label>Quanto você precisa?</label>
-                <div className={`slider-wrapper ${!valorImovelValid ? "is-disabled" : ""}`}>
-                  {valorImovelValid ? (
-                    <div className="slider-value">{formatSliderValue(sliderVal)}</div>
-                  ) : (
-                    <div className="slider-placeholder">Informe o valor do imóvel acima para liberar a simulação</div>
-                  )}
-                  <input
-                    type="range"
-                    min={SLIDER_MIN}
-                    max={dynamicMax}
-                    step={SLIDER_STEP}
-                    value={Math.min(sliderVal, dynamicMax)}
-                    onChange={(e) => setSliderVal(Number(e.target.value))}
-                    disabled={!valorImovelValid}
-                    style={{ background: sliderBg }}
-                  />
-                  <div className="slider-labels">
-                    <span>R$ 50 mil</span>
-                    <span>{valorImovelValid ? formatSliderValue(dynamicMax) : "—"}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="form-group full">
-                <label>O imóvel é quitado?</label>
-                <div className="form-radio-group">
-                  <div className={`radio-btn ${isQuitado ? "active" : ""}`} onClick={() => setIsQuitado(true)}>Sim</div>
-                  <div className={`radio-btn ${!isQuitado ? "active" : ""}`} onClick={() => setIsQuitado(false)}>Não</div>
-                </div>
-              </div>
-              <div className={`form-group full ${formErrors.tipoImovel ? "has-error" : ""}`}>
-                <label>Tipo de imóvel</label>
-                <select value={tipoImovel} onChange={(e) => { setTipoImovel(e.target.value); setFormErrors(er => ({...er, tipoImovel: false})); }}>
-                  <option value="">Selecione</option>
-                  <option>Apartamento</option>
-                  <option>Casa em condomínio</option>
-                  <option>Casa de rua</option>
-                  <option>Imóvel comercial</option>
-                  <option>Terreno</option>
-                </select>
-                {formErrors.tipoImovel && <span className="field-error">Preenchimento obrigatório</span>}
-              </div>
-            </div>
-            <button className="btn-cta" onClick={handleSubmitForm} disabled={submitting}>
-              {submitting ? "Enviando..." : "Simular gratuitamente"}
+          <div className="hero-cta-row">
+            <button className="hero-cta-btn" onClick={openModal}>
+              <span>Quero receber leads qualificados</span>
+              <span className="cta-arrow" aria-hidden="true">→</span>
             </button>
-            <div className="form-security">🔒 Seus dados estão protegidos. Sem compromisso.</div>
+          </div>
+
+          <div className="hero-trust" aria-label="Track record AG Antecipa">
+            <span className="hero-trust-item"><strong>+20</strong> anos no mercado</span>
+            <span className="hero-trust-sep" aria-hidden="true"></span>
+            <span className="hero-trust-item"><strong>+R$ 800mi</strong> originados</span>
+            <span className="hero-trust-sep" aria-hidden="true"></span>
+            <span className="hero-trust-item"><strong>+1.500</strong> empresas</span>
           </div>
         </div>
       </section>
 
-      {/* COMO FUNCIONA */}
-      <section className="how" id="como-funciona">
-        <div className="section-tag">Passo a passo</div>
-        <h2 className="section-title">
-          Do pedido ao dinheiro na conta:<br /><em>simples assim.</em>
-        </h2>
-        <div className="steps">
-          {[
-            { num: "01", title: "Preencha o formulário", desc: "Sem compromisso. Em minutos já iniciamos sua simulação." },
-            { num: "02", title: "Análise de parceiros", desc: "Escolha do parceiro ideal para o seu perfil e necessidade." },
-            { num: "03", title: "Avaliação do imóvel", desc: "Nossos parceiros cuidam de tudo." },
-            { num: "04", title: "Assinatura do contrato", desc: "Simples e prático." },
-            { num: "05", title: "Registro", desc: "Acompanhamento em cada etapa." },
-            { num: "06", title: "Dinheiro na conta", desc: "Crédito liberado com agilidade e segurança." },
-          ].map((s) => (
-            <div className="step" key={s.num}>
-              <div className="step-num">{s.num}</div>
-              <h3>{s.title}</h3>
-              <p>{s.desc}</p>
+      {/* DIAGNÓSTICO */}
+      <section className="diagnostico" id="diagnostico">
+        <div className="diagnostico-grid">
+          <div className="diagnostico-head">
+            <span className="diagnostico-label" aria-hidden="true">
+              <span className="section-num">01</span>
+              <span className="diagnostico-label-line"></span>
+              <span>Diagnóstico</span>
+            </span>
+            <h2 className="diagnostico-title">
+              O mercado ainda tenta crescer do jeito mais caro possível.
+            </h2>
+          </div>
+
+          <div className="diagnostico-body">
+            <ol className="diagnostico-list">
+              {PROBLEM_LIST.map((item, i) => (
+                <li key={i} className="diagnostico-item">
+                  <span className="diagnostico-num">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="diagnostico-text">{item}</span>
+                </li>
+              ))}
+            </ol>
+
+            <div className="diagnostico-cta-row">
+              <button className="diagnostico-cta" onClick={openModal}>
+                <span>Quero receber leads qualificados</span>
+                <span className="cta-arrow" aria-hidden="true">→</span>
+              </button>
             </div>
-          ))}
-        </div>
-        <div className="how-footer">
-          🤝 Na AG Antecipa, todo o processo conta com um especialista dedicado. <strong style={{ color: "var(--white)" }}>Você nunca fica no escuro.</strong>
-        </div>
-        <div className="section-cta centered">
-          <button className="btn-primary" onClick={scrollToForm}>Começar minha simulação</button>
+          </div>
         </div>
       </section>
 
-      {/* O QUE É */}
-      <section className="what-is">
-        <div className="what-is-visual">
-          <div style={{ fontSize: '0.9rem', color: 'var(--teal)', marginBottom: 2, letterSpacing: 1 }}>A partir de</div>
-          <div className="big-number">1,09%</div>
-          <div className="big-label">a.m. + IPCA · menor taxa do mercado</div>
-          <ul className="what-is-list">
-            <li>Seu imóvel é apenas a garantia e faz o seu patrimônio trabalhar a seu favor</li>
-            <li>Você usa o bem apenas como garantia e pode utilizá-lo normalmente</li>
-            <li>Crédito aprovado com base no valor do imóvel, não só no histórico bancário</li>
-            <li>Taxas muito abaixo do empréstimo pessoal, cheque especial e cartão rotativo</li>
+      {/* MODELO DE ENGAJAMENTO */}
+      <section className="modelo" id="modelo">
+        <div className="modelo-inner">
+          <div className="modelo-head">
+            <span className="modelo-label" aria-hidden="true">
+              <span className="section-num">02</span>
+              <span className="modelo-label-line"></span>
+              <span>Modelo de engajamento</span>
+            </span>
+            <h2 className="modelo-title">Você só paga pelo sucesso.</h2>
+          </div>
+
+          <ol className="modelo-steps">
+            {MODELO_STEPS.map((step, i) => (
+              <li key={i} className={`modelo-step ${i === MODELO_STEPS.length - 1 ? "modelo-step-final" : ""}`}>
+                <span className="modelo-step-num">{String(i + 1).padStart(2, "0")}</span>
+                <span className="modelo-step-divider" aria-hidden="true"></span>
+                <h3 className="modelo-step-title">{step.title}</h3>
+                {step.desc && <p className="modelo-step-desc">{step.desc}</p>}
+                {step.points && (
+                  <ul className="modelo-step-points">
+                    {step.points.map((p, j) => (
+                      <li key={j}>{p}</li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ol>
+
+          <div className="modelo-cta-row">
+            <button className="modelo-cta" onClick={openModal}>
+              <span>Quero conhecer o projeto de originação</span>
+              <span className="cta-arrow" aria-hidden="true">→</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* TRAJETÓRIA — track record */}
+      <section className="proof" id="proof">
+        <div className="proof-inner">
+          <div className="proof-head">
+            <span className="proof-label" aria-hidden="true">
+              <span className="section-num">03</span>
+              <span className="proof-label-line"></span>
+              <span>Trajetória</span>
+            </span>
+            <h2 className="proof-title">
+              Não estamos começando a aprender originação agora.
+            </h2>
+          </div>
+
+          <div className="proof-stats">
+            {PROOF_STATS.map((stat, i) => (
+              <div key={i} className="proof-stat">
+                <div className="proof-stat-num">{stat.value}</div>
+                <div className="proof-stat-label">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ESPECIALIZAÇÃO */}
+      <section className="expertise" id="expertise">
+        <div className="expertise-inner">
+          <div className="expertise-head">
+            <span className="expertise-label" aria-hidden="true">
+              <span className="section-num">04</span>
+              <span className="expertise-label-line"></span>
+              <span>Especialização</span>
+            </span>
+            <h2 className="expertise-title">
+              Nós entendemos o lead porque operamos o mercado.
+            </h2>
+            <div className="expertise-intro">
+              <p>Não somos uma agência tentando aprender crédito.</p>
+              <p>Somos uma operação que já originou centenas de milhões em recebíveis e entende:</p>
+            </div>
+          </div>
+
+          <ul className="expertise-list">
+            {EXPERTISE_ITEMS.map((item, i) => (
+              <li key={i} className="expertise-item">
+                <span className="expertise-dash" aria-hidden="true">—</span>
+                <span>{item}</span>
+              </li>
+            ))}
           </ul>
-          <div className="section-cta" style={{ marginTop: 32 }}>
-            <button className="btn-primary" onClick={scrollToForm}>Simular gratuitamente</button>
+
+          <p className="expertise-closing">
+            Isso aumenta drasticamente a qualidade da originação.
+          </p>
+
+          <div className="expertise-cta-row">
+            <button className="expertise-cta" onClick={openModal}>
+              <span>Quero receber leads qualificados</span>
+              <span className="cta-arrow" aria-hidden="true">→</span>
+            </button>
           </div>
-        </div>
-        <div>
-          <div className="section-tag">Entenda</div>
-          <h2 className="section-title">O que é o Empréstimo com <em>Garantia de Imóvel?</em></h2>
-          <p className="section-sub" style={{ maxWidth: "100%", marginBottom: 24 }}>
-            Também conhecido como Home Equity ou CGI, é uma modalidade em que você utiliza um imóvel de sua propriedade como garantia para acessar crédito com condições melhores do que as do mercado tradicional.
-          </p>
-          <p className="section-sub" style={{ maxWidth: "100%", marginBottom: 24 }}>
-            Como o risco da operação é menor, as taxas caem drasticamente. E o melhor: você continua usando o imóvel normalmente durante todo o período do contrato.
-          </p>
-          <p className="section-sub" style={{ maxWidth: "100%", color: "var(--teal)", fontWeight: 600 }}>
-            É o seu <strong style={{ color: "var(--teal)" }}>patrimônio</strong> gerando liquidez, sem abrir mão dele.
-          </p>
-        </div>
-      </section>
-
-      {/* VANTAGENS */}
-      <section className="vantagens">
-        <div className="section-tag">Vantagens</div>
-        <h2 className="section-title">
-          Por que fazer Empréstimo com Garantia de Imóvel<br />com a <em>AG Antecipa?</em>
-        </h2>
-        <p className="section-sub">Taxas que respeitam seu patrimônio. Prazo que preserva seu caixa. Uma parceria do início ao fim.</p>
-
-        <div className="vantagens-grid">
-          {[
-            { icon: "💰", title: "Taxas reduzidas", desc: <>Juros que respeitam o tamanho do seu <strong style={{ color: "var(--teal)" }}>patrimônio</strong>, a partir de 1,09% a.m. + IPCA.</> },
-            { icon: "📅", title: "Prazo longo", desc: "Até 240 meses para pagar, sem comprometer seu fluxo de caixa mensal." },
-            { icon: "🏦", title: "Crédito de alto valor", desc: "Acesse até 60% do valor do seu imóvel, sem limite mínimo de finalidade." },
-            { icon: "🔓", title: "Liberdade total de uso", desc: "Capital de giro, expansão, quitação de dívidas caras. Você decide como usar." },
-            { icon: "🏠", title: "O imóvel continua seu", desc: "Você usa o bem como garantia, continua sendo o proprietário e pode utilizá-lo normalmente." },
-            { icon: "🤝", title: "Atendimento real, do início ao fim", desc: "Nenhum chatbot. Um especialista dedicado acompanha cada etapa da operação." },
-          ].map((v, i) => (
-            <div className="vant-card" key={i}>
-              <div className="vant-icon">{v.icon}</div>
-              <h3>{v.title}</h3>
-              <p>{v.desc}</p>
-            </div>
-          ))}
-          <div className="vant-card vant-highlight">
-            <div className="vant-icon" style={{ flexShrink: 0 }}>⭐</div>
-            <p><strong style={{ color: "var(--teal)" }}>Na AG Antecipa, crédito que começa com quem entende o outro lado.</strong></p>
-          </div>
-        </div>
-
-        <div className="section-cta">
-          <button className="btn-primary" onClick={scrollToForm}>Quero simular meu crédito</button>
-          <span style={{ fontSize: 13, color: "var(--gray)" }}>Análise gratuita e sem compromisso</span>
         </div>
       </section>
 
       {/* COMPARATIVO */}
-      <section className="compare">
-        <div className="section-tag">Comparativo</div>
-        <h2 className="section-title">
-          Compare antes de decidir.<br /><em>Os números falam por si.</em>
-        </h2>
-        <p className="section-sub">Veja como o Empréstimo com Garantia de Imóvel com a AG Antecipa se compara às alternativas mais usadas no mercado.</p>
-
-        <div className="chart-wrapper">
-          <div className="chart-area">
-            <div className="chart-bars" ref={chartRef}>
-              <div className="bar-group featured-bar">
-                <div className="bar-col">
-                  <div className={`bar-fill bar-ag ${barsAnimated ? "animated" : ""}`} style={{ "--target-h": "8%" } as React.CSSProperties}></div>
-                </div>
-                <div className="bar-label-bottom">
-                  <span className="bar-rate-top teal-rate"><span style={{ fontSize: '0.55em', opacity: 0.7, display: 'block', marginBottom: 1, fontWeight: 400 }}>A partir de</span>1,09% a.m.<br /><span style={{ fontSize: 12, fontWeight: 500 }}>+ IPCA</span></span>
-                  <span className="bar-name">Empréstimo com<br />Garantia de Imóvel</span>
-                  <span className="bar-brand">AG Antecipa</span>
-                </div>
-              </div>
-              <div className="bar-group">
-                <div className="bar-col">
-                  <div className={`bar-fill bar-pessoal ${barsAnimated ? "animated" : ""}`} style={{ "--target-h": "43%", transitionDelay: "0.12s" } as React.CSSProperties}></div>
-                </div>
-                <div className="bar-label-bottom">
-                  <span className="bar-rate-top">~6,10% a.m.</span>
-                  <span className="bar-name">Empréstimo<br />Pessoal</span>
-                </div>
-              </div>
-              <div className="bar-group">
-                <div className="bar-col">
-                  <div className={`bar-fill bar-cheque ${barsAnimated ? "animated" : ""}`} style={{ "--target-h": "56%", transitionDelay: "0.24s" } as React.CSSProperties}></div>
-                </div>
-                <div className="bar-label-bottom">
-                  <span className="bar-rate-top">~8,00% a.m.</span>
-                  <span className="bar-name">Cheque<br />Especial</span>
-                </div>
-              </div>
-              <div className="bar-group">
-                <div className="bar-col">
-                  <div className={`bar-fill bar-cartao ${barsAnimated ? "animated" : ""}`} style={{ "--target-h": "100%", transitionDelay: "0.36s" } as React.CSSProperties}></div>
-                </div>
-                <div className="bar-label-bottom">
-                  <span className="bar-rate-top">~14,20% a.m.</span>
-                  <span className="bar-name">Cartão<br />Rotativo</span>
-                </div>
-              </div>
-            </div>
-            <div className="chart-source">Fonte: Banco Central do Brasil</div>
+      <section className="comparativo" id="comparativo">
+        <div className="comparativo-inner">
+          <div className="comparativo-head">
+            <span className="comparativo-label" aria-hidden="true">
+              <span className="section-num">05</span>
+              <span className="comparativo-label-line"></span>
+              <span>Comparativo</span>
+            </span>
+            <h2 className="comparativo-title">
+              Sem custo fixo. Sem risco de aquisição.
+            </h2>
           </div>
 
-          <div className="chart-insight-col">
-            <div className="insight-card">
-              <div className="insight-stat">13x</div>
-              <p className="insight-text">O cartão rotativo pode custar <strong>mais de 13 vezes</strong> o que você pagaria com o Empréstimo com Garantia de Imóvel na AG Antecipa.</p>
+          <div className="comparativo-table" role="table" aria-label="Comparativo entre modelo tradicional e modelo AG">
+            <div className="comparativo-row comparativo-row-header" role="row">
+              <div className="comparativo-cell comparativo-cell-trad" role="columnheader">
+                Modelo tradicional
+              </div>
+              <div className="comparativo-cell comparativo-cell-ag" role="columnheader">
+                Modelo AG
+              </div>
             </div>
-            <div className="insight-card insight-card-alt">
-              <div className="insight-icon">💡</div>
-              <p className="insight-text">Enquanto outros produtos corroem sua margem, o crédito com garantia preserva o caixa e ainda te dá fôlego para crescer.</p>
-            </div>
-            <div className="compare-cta-inline">
-              <p>Não existe motivo para pagar mais caro por crédito quando você tem um imóvel. Com a AG Antecipa, você descobre em minutos quanto pode acessar.</p>
-              <button className="btn-primary" onClick={scrollToForm}>Simular gratuitamente</button>
-            </div>
+            {COMPARATIVO_ROWS.map((row, i) => (
+              <div key={i} className="comparativo-row" role="row">
+                <div className="comparativo-cell comparativo-cell-trad" role="cell">
+                  <span className="comparativo-mark comparativo-mark-trad" aria-hidden="true">−</span>
+                  <span>{row.tradicional}</span>
+                </div>
+                <div className="comparativo-cell comparativo-cell-ag" role="cell">
+                  <span className="comparativo-mark comparativo-mark-ag" aria-hidden="true">+</span>
+                  <span>{row.ag}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="comparativo-cta-row">
+            <button className="comparativo-cta" onClick={openModal}>
+              <span>Quero receber leads qualificados</span>
+              <span className="cta-arrow" aria-hidden="true">→</span>
+            </button>
           </div>
         </div>
       </section>
 
-      {/* FAQ */}
-      <section className="faq">
-        <div className="section-tag">Dúvidas frequentes</div>
-        <h2 className="section-title">
-          Perguntas importantes antes<br />de <em>contratar</em>
-        </h2>
+      {/* CONTATO — última seção com formulário inline */}
+      <section className="contato" id="contato">
+        <div className="contato-grid">
+          <div className="contato-head">
+            <span className="contato-label" aria-hidden="true">
+              <span className="section-num">06</span>
+              <span className="contato-label-line"></span>
+              <span>Conversar</span>
+            </span>
+            <h2 className="contato-title">
+              <span className="hl-line hl-muted">Sua operação não precisa de mais prospecção fria.</span>
+              <span className="hl-line hl-bright">Precisa de empresas prontas para conversar.</span>
+            </h2>
+          </div>
 
-        <div className="faq-grid">
-          {FAQ_DATA.map((item, i) => (
-            <div
-              key={i}
-              className={`faq-item ${openFaq === i ? "open" : ""}`}
-              onClick={() => setOpenFaq(openFaq === i ? null : i)}
-            >
-              <div className="faq-q">
-                <span>{item.q}</span>
-                <span className="arrow">+</span>
+          <div className="contato-card lead-form">
+            {!leadSent ? (
+              <>
+                <div className="contato-card-header">
+                  <h3 className="contato-card-title">Receba leads qualificados</h3>
+                </div>
+                {renderLeadForm()}
+              </>
+            ) : (
+              <div className="lead-success">
+                <div className="lead-success-icon" aria-hidden="true">✓</div>
+                <h3 className="contato-card-title">Recebemos seus dados</h3>
+                <p className="lead-success-text">
+                  Em breve, nosso time entrará em contato para qualificar a parceria.
+                </p>
               </div>
-              <div className="faq-a">{item.a}</div>
-            </div>
-          ))}
-        </div>
-
-      </section>
-
-      {/* CTA FINAL */}
-      <section className="cta-final" style={{ backgroundImage: `url(${ctaBgImage})`, backgroundSize: '120%', backgroundPosition: '-5% top', backgroundRepeat: 'no-repeat', position: 'relative' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(10, 18, 30, 0.82)', zIndex: 0 }} />
-        <div className="section-tag" style={{ position: 'relative', zIndex: 1 }}>Comece agora</div>
-        <h2 className="section-title" style={{ position: 'relative', zIndex: 1 }}>Seu próximo passo <em>começa aqui.</em></h2>
-        <p className="section-sub" style={{ position: 'relative', zIndex: 1 }}>A AG Antecipa oferece crédito com taxa justa, atendimento próximo e sem letras miúdas. Faça sua simulação gratuita agora.</p>
-        <div className="cta-btn-group" style={{ justifyContent: 'center', position: 'relative', zIndex: 1 }}>
-          <button className="btn-primary" onClick={scrollToForm}>Simular agora</button>
-        </div>
-        <div className="cta-badges" style={{ position: 'relative', zIndex: 1 }}>
-          <div className="cta-badge"><span>✓</span> Análise sem compromisso</div>
-          <div className="cta-badge"><span>✓</span> Atendimento exclusivo</div>
-          <div className="cta-badge"><span>✓</span> Transparência total</div>
-          <div className="cta-badge"><span>✓</span> 21 anos de mercado</div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -659,11 +582,10 @@ const Index = () => {
       <footer>
         <div className="footer-brand">
           <img src={agLogoWhite} alt="AG Antecipa" className="footer-logo-img" />
-          21 anos antecipando recebíveis com atendimento que funciona. Estrutura sólida, promessas cumpridas.
+          +20 anos antecipando recebíveis com atendimento que funciona. Estrutura sólida, promessas cumpridas.
         </div>
         <div className="footer-legal">
-          © 2026 AG Antecipa. Todos os direitos reservados.<br />
-          Sujeito à análise de crédito.
+          © 2026 AG Antecipa. Todos os direitos reservados.
         </div>
       </footer>
 
@@ -671,6 +593,33 @@ const Index = () => {
         <div className="cookie-notice" role="status" aria-live="polite">
           <p>Usamos cookies para personalizar conteúdos e melhorar a sua experiência.</p>
           <button className="cookie-notice-btn" onClick={acceptCookies}>Ok, entendi</button>
+        </div>
+      )}
+
+      {/* LEAD MODAL */}
+      {modalOpen && (
+        <div className="lead-modal-backdrop" onClick={closeModal} role="dialog" aria-modal="true" aria-labelledby="lead-modal-title">
+          <div className="lead-modal lead-form" onClick={(e) => e.stopPropagation()}>
+            <button className="lead-modal-close" onClick={closeModal} aria-label="Fechar">×</button>
+
+            {!leadSent ? (
+              <>
+                <div className="lead-modal-header">
+                  <h2 className="lead-modal-title" id="lead-modal-title">Receba leads qualificados</h2>
+                </div>
+                {renderLeadForm()}
+              </>
+            ) : (
+              <div className="lead-success">
+                <div className="lead-success-icon" aria-hidden="true">✓</div>
+                <h2 className="lead-modal-title">Recebemos seus dados</h2>
+                <p className="lead-success-text">
+                  Em breve, nosso time entrará em contato para qualificar a parceria.
+                </p>
+                <button className="lead-cta" onClick={closeModal}>Fechar</button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </>
