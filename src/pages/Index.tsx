@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import agLogoWhite from "@/assets/ag-logo-white.png";
 
 const PROBLEM_LIST = [
@@ -27,12 +27,69 @@ const COMPARATIVO_ROWS: Array<{ tradicional: string; ag: string }> = [
   { tradicional: "Time interno maior", ag: "Operação enxuta" },
 ];
 
-const PROOF_STATS: Array<{ value: string; label: string }> = [
-  { value: "+20", label: "Anos no mercado de crédito" },
-  { value: "+R$ 800mi", label: "Em operações originadas" },
-  { value: "+1.500", label: "Empresas atendidas" },
-  { value: "600%", label: "De crescimento nos últimos 3 anos" },
+type CountStat = {
+  target: number;
+  prefix?: string;
+  suffix?: string;
+  format?: (n: number) => string;
+  label: string;
+};
+
+const ptbr = (n: number) => Math.round(n).toLocaleString("pt-BR");
+
+const PROOF_STATS: CountStat[] = [
+  { target: 20, prefix: "+", label: "Anos no mercado de crédito" },
+  { target: 800, prefix: "+R$ ", suffix: "mi", label: "Em operações originadas" },
+  { target: 1500, prefix: "+", format: ptbr, label: "Empresas atendidas" },
+  { target: 600, suffix: "%", label: "De crescimento nos últimos 3 anos" },
 ];
+
+function CountUp({
+  target,
+  start,
+  prefix = "",
+  suffix = "",
+  format,
+  duration = 1400,
+}: {
+  target: number;
+  start: boolean;
+  prefix?: string;
+  suffix?: string;
+  format?: (n: number) => string;
+  duration?: number;
+}) {
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    if (!start) return;
+    // Respeita usuários que pedem menos movimento
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setValue(target);
+      return;
+    }
+    let raf = 0;
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      setValue(target * eased);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration, start]);
+
+  const formatted = format ? format(value) : String(Math.round(value));
+  return (
+    <>
+      {prefix}
+      {formatted}
+      {suffix}
+    </>
+  );
+}
 
 const MODELO_STEPS: Array<{ title: string; desc?: string; points?: string[] }> = [
   {
@@ -97,6 +154,8 @@ function isValidBRMobile(tel: string): boolean {
 const Index = () => {
   const [navVisible, setNavVisible] = useState(true);
   const [showCookieNotice, setShowCookieNotice] = useState(false);
+  const [proofInView, setProofInView] = useState(false);
+  const proofRef = useRef<HTMLElement>(null);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -179,6 +238,23 @@ const Index = () => {
   useEffect(() => {
     const accepted = window.localStorage.getItem("cookiesAccepted");
     setShowCookieNotice(accepted !== "true");
+  }, []);
+
+  // Dispara count-up dos stats quando a seção Trajetória entra na viewport
+  useEffect(() => {
+    const el = proofRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setProofInView(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.25 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
   }, []);
 
   const acceptCookies = useCallback(() => {
@@ -349,11 +425,17 @@ const Index = () => {
           </div>
 
           <div className="hero-trust" aria-label="Track record AG Antecipa">
-            <span className="hero-trust-item"><strong>+20</strong> anos no mercado</span>
+            <span className="hero-trust-item">
+              <strong><CountUp target={20} start={true} prefix="+" duration={1200} /></strong> anos no mercado
+            </span>
             <span className="hero-trust-sep" aria-hidden="true"></span>
-            <span className="hero-trust-item"><strong>+R$ 800mi</strong> originados</span>
+            <span className="hero-trust-item">
+              <strong><CountUp target={800} start={true} prefix="+R$ " suffix="mi" duration={1200} /></strong> originados
+            </span>
             <span className="hero-trust-sep" aria-hidden="true"></span>
-            <span className="hero-trust-item"><strong>+1.500</strong> empresas</span>
+            <span className="hero-trust-item">
+              <strong><CountUp target={1500} start={true} prefix="+" format={ptbr} duration={1200} /></strong> empresas
+            </span>
           </div>
         </div>
       </section>
@@ -432,7 +514,7 @@ const Index = () => {
       </section>
 
       {/* TRAJETÓRIA — track record */}
-      <section className="proof" id="proof">
+      <section className="proof" id="proof" ref={proofRef}>
         <div className="proof-inner">
           <div className="proof-head">
             <span className="proof-label" aria-hidden="true">
@@ -448,7 +530,15 @@ const Index = () => {
           <div className="proof-stats">
             {PROOF_STATS.map((stat, i) => (
               <div key={i} className="proof-stat">
-                <div className="proof-stat-num">{stat.value}</div>
+                <div className="proof-stat-num">
+                  <CountUp
+                    target={stat.target}
+                    start={proofInView}
+                    prefix={stat.prefix}
+                    suffix={stat.suffix}
+                    format={stat.format}
+                  />
+                </div>
                 <div className="proof-stat-label">{stat.label}</div>
               </div>
             ))}
