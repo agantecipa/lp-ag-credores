@@ -200,15 +200,41 @@ nav.nav-hidden {
 .hero-headline {
   font-family: 'Sora', sans-serif;
   font-weight: 700;
-  letter-spacing: -0.025em;
+  font-size: clamp(30px, 3.8vw, 48px);
+  letter-spacing: -0.028em;
+  line-height: 1.1;
+  color: #15326c;
   margin: 0;
-  line-height: 1.04;
+  text-wrap: balance;
 }
 
-.hero-headline .hl-line {
+.hero-headline .hl-accent {
+  position: relative;
+  color: #5b7099;
+  white-space: nowrap;
+}
+
+.hero-headline .hl-accent::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.08em;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.4;
+  transform-origin: left center;
+  animation: heroAccentLine 1.1s cubic-bezier(.2,.7,.2,1) 0.5s both;
+}
+
+@keyframes heroAccentLine {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Legacy split-line styles (preserved for .contato-title) */
+.hl-line {
   display: block;
-  font-size: clamp(36px, 5.4vw, 64px);
-  line-height: 1.06;
 }
 
 .hl-muted {
@@ -223,20 +249,11 @@ nav.nav-hidden {
   margin-top: 4px;
 }
 
-/* Hero light theme overrides — tons de azul AG */
-.hero .hl-muted {
-  color: rgba(21,50,108,0.48);
-}
-
-.hero .hl-bright {
-  color: #15326c;
-}
-
 .hero-support {
-  font-size: 17px;
-  line-height: 1.7;
+  font-size: 15px;
+  line-height: 1.65;
   color: rgba(21,50,108,0.72);
-  max-width: 660px;
+  max-width: 780px;
   margin: 0;
   font-weight: 400;
 }
@@ -1438,7 +1455,8 @@ footer {
   }
 
   .hero-content { gap: 24px; }
-  .hero-headline .hl-line { font-size: clamp(28px, 8vw, 44px); }
+  .hero-headline { font-size: clamp(23px, 5.6vw, 32px); line-height: 1.14; }
+  .hero-headline .hl-accent { white-space: normal; }
   .hero-support { font-size: 15px; line-height: 1.65; }
   .hero-rule.top { top: 72px; left: 20px; right: 20px; }
   .hero-rule.bottom { bottom: 32px; left: 20px; right: 20px; }
@@ -1603,7 +1621,7 @@ footer {
 
 @media (max-width: 480px) {
   section.hero { padding: 90px 16px 56px; }
-  .hero-headline .hl-line { font-size: clamp(26px, 8.5vw, 38px); }
+  .hero-headline { font-size: clamp(21px, 6vw, 28px); }
   .hero-rule.top { top: 80px; left: 16px; right: 16px; }
   .hero-rule.bottom { bottom: 32px; left: 16px; right: 16px; }
 

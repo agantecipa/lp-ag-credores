@@ -463,8 +463,7 @@ const Index = () => {
           <span className="hero-anchor" aria-hidden="true"></span>
 
           <h1 className="hero-headline">
-            <span className="hl-line hl-muted">Após mais de 20 anos gerando leads de antecipação para nós mesmos,</span>
-            <span className="hl-line hl-bright">hoje estamos passando para você.</span>
+            Após mais de 20 anos gerando leads de antecipação para nós mesmos, hoje estamos <span className="hl-accent">passando para você</span>.
           </h1>
 
           <p className="hero-support">
