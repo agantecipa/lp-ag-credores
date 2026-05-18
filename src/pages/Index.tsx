@@ -5,8 +5,8 @@ import agLogoDark from "@/assets/ag-logo.png";
 const PROBLEM_LIST = [
   "Sua equipe comercial prospecta frio.",
   "O marketing gera curiosos.",
-  "O CAC aumenta.",
-  "O SDR vira filtro de lead ruim.",
+  "O custo de aquisição aumenta.",
+  "O vendedor vira filtro de lead ruim.",
   "E a operação continua dependente de indicação.",
 ];
 
@@ -119,7 +119,7 @@ const TIPO_OPERACAO_OPTIONS = ["Factoring", "Securitizadora", "FIDC", "Outro"];
 
 function isValidEmail(email: string): boolean {
   const normalized = email.trim().toLowerCase();
-  const basicValid = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(normalized);
+  const basicValid = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/i.test(normalized);
   if (!basicValid) return false;
 
   const [, domain = ""] = normalized.split("@");
@@ -152,6 +152,37 @@ function isValidBRMobile(tel: string): boolean {
   return digits[2] === "9";
 }
 
+function isValidCNPJ(cnpj: string): boolean {
+  const digits = cnpj.replace(/\D/g, "");
+  if (digits.length !== 14) return false;
+  if (/^(\d)\1+$/.test(digits)) return false;
+
+  const calcDigit = (base: string) => {
+    let sum = 0;
+    let weight = base.length - 7;
+    for (let i = 0; i < base.length; i++) {
+      sum += parseInt(base[i], 10) * weight;
+      weight = weight === 2 ? 9 : weight - 1;
+    }
+    const mod = sum % 11;
+    return mod < 2 ? 0 : 11 - mod;
+  };
+
+  const d1 = calcDigit(digits.slice(0, 12));
+  if (d1 !== parseInt(digits[12], 10)) return false;
+  const d2 = calcDigit(digits.slice(0, 13));
+  return d2 === parseInt(digits[13], 10);
+}
+
+function formatCNPJ(value: string): string {
+  const d = value.replace(/\D/g, "").slice(0, 14);
+  if (d.length <= 2) return d;
+  if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`;
+  if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
+  if (d.length <= 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+}
+
 const Index = () => {
   const [navVisible, setNavVisible] = useState(true);
   const [showCookieNotice, setShowCookieNotice] = useState(false);
@@ -168,6 +199,7 @@ const Index = () => {
   // Lead fields (shared between modal + inline form)
   const [leadNome, setLeadNome] = useState("");
   const [leadEmpresa, setLeadEmpresa] = useState("");
+  const [leadCnpj, setLeadCnpj] = useState("");
   const [leadCargo, setLeadCargo] = useState("");
   const [leadTel, setLeadTel] = useState("");
   const [leadEmail, setLeadEmail] = useState("");
@@ -180,6 +212,11 @@ const Index = () => {
     else if (v.length > 0) v = `(${v}`;
     setLeadTel(v);
     setLeadErrors(er => ({ ...er, tel: false, telFormat: false }));
+  };
+
+  const handleLeadCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLeadCnpj(formatCNPJ(e.target.value));
+    setLeadErrors(er => ({ ...er, cnpj: false, cnpjFormat: false }));
   };
 
   const openModal = useCallback(() => {
@@ -266,6 +303,8 @@ const Index = () => {
   const handleLeadSubmit = useCallback(async () => {
     const errors: Record<string, boolean> = {};
     if (!leadEmpresa.trim()) errors.empresa = true;
+    if (!leadCnpj.trim()) errors.cnpj = true;
+    else if (!isValidCNPJ(leadCnpj)) errors.cnpjFormat = true;
     if (!leadCargo.trim()) errors.cargo = true;
     if (!leadTipoOp) errors.tipoOp = true;
     setLeadErrors(errors);
@@ -277,7 +316,7 @@ const Index = () => {
     await new Promise((r) => setTimeout(r, 400));
     setLeadSubmitting(false);
     setLeadSent(true);
-  }, [leadEmpresa, leadCargo, leadTipoOp]);
+  }, [leadEmpresa, leadCnpj, leadCargo, leadTipoOp]);
 
   const renderLeadForm = () => (
     <>
@@ -310,7 +349,7 @@ const Index = () => {
                 onChange={(e) => { setLeadEmail(e.target.value); setLeadErrors(er => ({ ...er, email: false, emailFormat: false })); }}
               />
               {leadErrors.email && <span className="field-error">Preenchimento obrigatório</span>}
-              {leadErrors.emailFormat && <span className="field-error">Digite um e-mail válido</span>}
+              {leadErrors.emailFormat && <span className="field-error">Insira seu e-mail corretamente</span>}
             </div>
 
             <div className={`form-group full ${leadErrors.tel || leadErrors.telFormat ? "has-error" : ""}`}>
@@ -345,6 +384,20 @@ const Index = () => {
                 onChange={(e) => { setLeadEmpresa(e.target.value); setLeadErrors(er => ({ ...er, empresa: false })); }}
               />
               {leadErrors.empresa && <span className="field-error">Preenchimento obrigatório</span>}
+            </div>
+
+            <div className={`form-group full ${leadErrors.cnpj || leadErrors.cnpjFormat ? "has-error" : ""}`}>
+              <label>CNPJ</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={leadCnpj}
+                placeholder="00.000.000/0000-00"
+                maxLength={18}
+                onChange={handleLeadCnpjChange}
+              />
+              {leadErrors.cnpj && <span className="field-error">Preenchimento obrigatório</span>}
+              {leadErrors.cnpjFormat && <span className="field-error">Informe um CNPJ válido</span>}
             </div>
 
             <div className={`form-group full ${leadErrors.cargo ? "has-error" : ""}`}>
@@ -410,12 +463,12 @@ const Index = () => {
           <span className="hero-anchor" aria-hidden="true"></span>
 
           <h1 className="hero-headline">
-            <span className="hl-line hl-muted">Você fecha as operações.</span>
-            <span className="hl-line hl-bright">Nós geramos os clientes.</span>
+            <span className="hl-line hl-muted">Após mais de 20 anos gerando leads de antecipação para nós mesmos,</span>
+            <span className="hl-line hl-bright">hoje estamos passando para você.</span>
           </h1>
 
           <p className="hero-support">
-            A AG origina empresas interessadas em antecipação de recebíveis para factorings, securitizadoras e FIDCs — e só ganha quando o lead vira operação.
+            Você fecha as operações, nós geramos os leads — e você só paga no sucesso do cliente.
           </p>
 
           <div className="hero-cta-row">
