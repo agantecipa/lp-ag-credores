@@ -1222,6 +1222,15 @@ nav.nav-hidden {
   cursor: not-allowed;
 }
 
+.lead-submit-error {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #ef4444;
+  text-align: center;
+  font-weight: 500;
+  margin: 12px 0 0;
+}
+
 .lead-consent {
   font-size: 11px;
   line-height: 1.55;

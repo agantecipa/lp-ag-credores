@@ -2,6 +2,12 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import agLogoWhite from "@/assets/ag-logo-white.png";
 import agLogoDark from "@/assets/ag-logo.png";
 
+declare global {
+  interface Window {
+    dataLayer?: Record<string, unknown>[];
+  }
+}
+
 const PROBLEM_LIST = [
   "Sua equipe comercial prospecta frio.",
   "O marketing gera curiosos.",
@@ -117,6 +123,54 @@ const MODELO_STEPS: Array<{ title: string; desc?: string; points?: string[] }> =
 
 const TIPO_OPERACAO_OPTIONS = ["Factoring", "Securitizadora", "FIDC", "Outro"];
 
+const LEAD_WEBHOOK_URL = "https://hook.us2.make.com/1lxboysydf0qn5hf0s65efcml2b5lh02";
+
+const TRACKING_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "fbclid"] as const;
+const TRACKING_STORAGE_KEY = "lead_tracking";
+
+// Lê os parâmetros de tracking (UTMs + fbclid) da URL; persiste na sessão e usa
+// o armazenado como fallback (caso a query string seja perdida antes do envio).
+// Sempre retorna todas as chaves.
+function collectTracking(): Record<string, string> {
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl: Record<string, string> = {};
+  let hasAny = false;
+  for (const k of TRACKING_KEYS) {
+    const v = params.get(k);
+    if (v) { fromUrl[k] = v; hasAny = true; }
+  }
+
+  let stored: Record<string, string> = {};
+  if (hasAny) {
+    try { window.sessionStorage.setItem(TRACKING_STORAGE_KEY, JSON.stringify(fromUrl)); } catch { /* ignore */ }
+    stored = fromUrl;
+  } else {
+    try { stored = JSON.parse(window.sessionStorage.getItem(TRACKING_STORAGE_KEY) || "{}"); } catch { /* ignore */ }
+  }
+
+  return TRACKING_KEYS.reduce<Record<string, string>>((acc, k) => {
+    acc[k] = stored[k] || "";
+    return acc;
+  }, {});
+}
+
+// Timestamp ISO 8601 no horário local de Brasília (ex.: 2026-05-29T10:51:49-03:00)
+function localTimestamp(): string {
+  const tz = "America/Sao_Paulo";
+  const parts: Record<string, string> = {};
+  for (const p of new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hourCycle: "h23",
+    timeZoneName: "longOffset",
+  }).formatToParts(new Date())) {
+    parts[p.type] = p.value;
+  }
+  const offset = (parts.timeZoneName || "GMT-03:00").replace(/^GMT/, "").replace(/−/g, "-") || "-03:00";
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
+}
+
 function isValidEmail(email: string): boolean {
   const normalized = email.trim().toLowerCase();
   const basicValid = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/i.test(normalized);
@@ -193,6 +247,7 @@ const Index = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [leadSubmitting, setLeadSubmitting] = useState(false);
   const [leadSent, setLeadSent] = useState(false);
+  const [leadSubmitError, setLeadSubmitError] = useState(false);
   const [leadErrors, setLeadErrors] = useState<Record<string, boolean>>({});
   const [formStep, setFormStep] = useState<1 | 2>(1);
 
@@ -278,6 +333,11 @@ const Index = () => {
     setShowCookieNotice(accepted !== "true");
   }, []);
 
+  // Captura UTMs + fbclid assim que a página carrega (antes de qualquer navegação)
+  useEffect(() => {
+    collectTracking();
+  }, []);
+
   // Dispara count-up dos stats quando a seção Trajetória entra na viewport
   useEffect(() => {
     const el = proofRef.current;
@@ -310,13 +370,38 @@ const Index = () => {
     setLeadErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
-    // TODO: integração com webhook/CRM será definida depois.
-    // Por enquanto o submit apenas marca como enviado para teste de UX.
+    const payload = {
+      nome: leadNome.trim(),
+      email: leadEmail.trim(),
+      phone: leadTel,
+      empresa: leadEmpresa.trim(),
+      cnpj: leadCnpj,
+      cargo: leadCargo.trim(),
+      tipo_operacao: leadTipoOp,
+      timestamp: localTimestamp(),
+      ...collectTracking(),
+    };
+
+    setLeadSubmitError(false);
     setLeadSubmitting(true);
-    await new Promise((r) => setTimeout(r, 400));
-    setLeadSubmitting(false);
-    setLeadSent(true);
-  }, [leadEmpresa, leadCnpj, leadCargo, leadTipoOp]);
+    try {
+      const res = await fetch(LEAD_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`Webhook respondeu ${res.status}`);
+
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ event: "form-credores", ...payload });
+
+      setLeadSent(true);
+    } catch {
+      setLeadSubmitError(true);
+    } finally {
+      setLeadSubmitting(false);
+    }
+  }, [leadNome, leadEmail, leadTel, leadEmpresa, leadCnpj, leadCargo, leadTipoOp]);
 
   const renderLeadForm = () => (
     <>
@@ -430,6 +515,12 @@ const Index = () => {
             <span>{leadSubmitting ? "Enviando..." : "Enviar"}</span>
             {!leadSubmitting && <span className="cta-arrow" aria-hidden="true">→</span>}
           </button>
+
+          {leadSubmitError && (
+            <p className="lead-submit-error" role="alert">
+              Não foi possível enviar agora. Tente novamente em instantes.
+            </p>
+          )}
 
           <p className="lead-consent">
             Ao cadastrar você concorda em fornecer seus dados para receber o contato da AG Antecipa.
