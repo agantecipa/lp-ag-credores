@@ -121,7 +121,7 @@ const MODELO_STEPS: Array<{ title: string; desc?: string; points?: string[] }> =
   },
 ];
 
-const TIPO_OPERACAO_OPTIONS = ["Factoring", "Securitizadora", "FIDC", "Outro"];
+const TIPO_OPERACAO_OPTIONS = ["Factoring/FIDC/Securitizadora", "Não tenho empresa de crédito"];
 
 const LEAD_WEBHOOK_URL = "https://hook.us2.make.com/1lxboysydf0qn5hf0s65efcml2b5lh02";
 
